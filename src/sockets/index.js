@@ -3,7 +3,7 @@
  * La lógica de cada evento vive en src/modulos/<modulo>/<modulo>.sockets.js.
  */
 import { Server } from 'socket.io';
-import { env } from '../config/env.js';
+import { origenesPermitidos } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { autenticarSocket } from './autenticarSocket.js';
 import { establecerIo, salaUsuario } from './emisor.js';
@@ -12,7 +12,7 @@ import { registrarSocketsMensajes } from '../modulos/mensajes/mensajes.sockets.j
 
 export function crearServidorSockets(servidorHttp) {
   const io = new Server(servidorHttp, {
-    cors: { origin: env.FRONTEND_URL, credentials: true },
+    cors: { origin: origenesPermitidos, credentials: true },
   });
 
   io.use(autenticarSocket);

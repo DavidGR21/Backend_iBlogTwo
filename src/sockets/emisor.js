@@ -26,3 +26,8 @@ export function emitirAUsuario(usuarioId, evento, datos) {
 export function emitirASala(sala, evento, datos) {
   io?.to(sala).emit(evento, datos);
 }
+
+/** A todos los usuarios conectados (p. ej. una publicación pública nueva). */
+export function emitirATodos(evento, datos) {
+  io?.emit(evento, datos);
+}

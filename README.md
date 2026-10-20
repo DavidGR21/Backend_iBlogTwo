@@ -48,6 +48,7 @@ iblog-backend/
 │  │  └─ transaccion.js       Helper enTransaccion()
 │  ├─ lib/                    Herramientas técnicas sin lógica de negocio
 │  │  ├─ almacenamiento.js    Bucket de Neon Storage (URLs prefirmadas)
+│  │  ├─ paginacion.js        Cursor opaco y { items, siguienteCursor }
 │  │  ├─ cifrado.js           AES-256-GCM y HMAC
 │  │  ├─ clave.js             Hash de contraseñas (Argon2id)
 │  │  ├─ correo.js            Envío de correos (API de Brevo)
@@ -56,7 +57,7 @@ iblog-backend/
 │  ├─ errores/
 │  │  └─ ErrorApp.js          Errores esperados con su código HTTP
 │  ├─ middlewares/            Funciones que corren antes de los controladores
-│  │  ├─ autenticar.js        Exige sesión (req.usuario)
+│  │  ├─ autenticar.js        Exige sesión (req.usuario) · autenticarOpcional
 │  │  ├─ limitarPeticiones.js Anti fuerza bruta
 │  │  ├─ manejarErrores.js    Convierte errores en respuestas JSON
 │  │  ├─ noEncontrado.js      404 de rutas inexistentes
@@ -168,5 +169,7 @@ cualquier error lanzado ──────────────────�
 4. Health check path: `/salud`.
 5. Las migraciones se ejecutan desde tu máquina con la `DATABASE_URL` de producción:
    `npm run migrar`.
+6. El bucket de Neon Storage debe permitir CORS para `PUT` y `GET` desde el dominio del
+   frontend (el navegador sube y descarga las imágenes directamente con URLs prefirmadas).
 
 > El plan gratuito de Render bloquea SMTP: por eso el correo usa la API HTTP de Brevo.

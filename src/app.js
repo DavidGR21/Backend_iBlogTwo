@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { env } from './config/env.js';
+import { origenesPermitidos } from './config/env.js';
 import { pool } from './db/pool.js';
 import { rutas } from './rutas.js';
 import { noEncontrado } from './middlewares/noEncontrado.js';
@@ -17,7 +17,7 @@ export const app = express();
 app.set('trust proxy', 1); // Render está detrás de un proxy: así req.ip es la IP real
 
 app.use(helmet());
-app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: origenesPermitidos, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser()); // el refresh token viaja en una cookie httpOnly
 

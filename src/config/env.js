@@ -49,3 +49,13 @@ if (!resultado.success) {
 
 export const env = Object.freeze(resultado.data);
 export const esProduccion = env.NODE_ENV === 'production';
+
+/**
+ * Orígenes permitidos por CORS (Express y Socket.io). FRONTEND_URL admite varios
+ * separados por coma, p. ej. el dominio de Vercel y sus previews.
+ * La primera es la que se usa en los enlaces de los correos.
+ */
+export const origenesPermitidos = env.FRONTEND_URL.split(',')
+  .map((origen) => origen.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+export const urlFrontend = origenesPermitidos[0];

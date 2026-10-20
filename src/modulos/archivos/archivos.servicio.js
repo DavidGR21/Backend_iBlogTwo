@@ -1,9 +1,107 @@
 /**
  * Reglas de archivos. Usa lib/almacenamiento.
- *  - Clave del objeto: '<destino>/<uuid>.<ext>' (ej. 'posts/3f2a….webp'); nunca el nombre original.
+ *  - Clave del objeto: '<carpeta>/<uuid>.<ext>' (ej. 'posts/3f2a….webp'); nunca el nombre original.
  *  - Solo el propietario puede confirmar o eliminar.
+ *  - Al confirmar se comprueba en el bucket que el objeto exista y no supere 10 MB
+ *    (el tamaño que declara el navegador no es confiable).
  *  - Al eliminar: borrar el objeto del bucket y marcar eliminado_en.
  *  - Exporta también `exigirArchivosPropios(ids, usuarioId)`, que usan
  *    publicaciones, perfiles y mensajes antes de enlazar un archivo.
  */
-export {};
+import crypto from 'node:crypto';
+import { env } from '../../config/env.js';
+import { ErrorApp } from '../../errores/ErrorApp.js';
+import {
+  eliminarObjeto,
+  obtenerMetadatos,
+  urlParaSubir,
+  urlParaVer,
+} from '../../lib/almacenamiento.js';
+import { logger } from '../../lib/logger.js';
+import * as repositorio from './archivos.repositorio.js';
+import { aArchivo } from './archivos.mapeador.js';
+import { TAMANO_MAXIMO } from './archivos.esquemas.js';
+
+const CARPETAS = { perfil: 'perfiles', post: 'posts', mensaje: 'mensajes' };
+const EXTENSIONES = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+export async function solicitarSubida(usuarioId, { tipoMime, tamanoBytes, destino }) {
+  const id = crypto.randomUUID();
+  const claveObjeto = `${CARPETAS[destino]}/${id}.${EXTENSIONES[tipoMime]}`;
+
+  await repositorio.crearPendiente({
+    id,
+    propietarioId: usuarioId,
+    bucket: env.NEON_BUCKET,
+    claveObjeto,
+    tipoMime,
+    tamanoBytes,
+  });
+
+  return { archivoId: id, urlSubida: await urlParaSubir(claveObjeto, tipoMime) };
+}
+
+async function buscarPropio(id, usuarioId) {
+  const archivo = await repositorio.buscarPorId(id);
+  if (!archivo || archivo.propietario_id !== usuarioId) {
+    throw ErrorApp.noEncontrado('Archivo no encontrado');
+  }
+  return archivo;
+}
+
+export async function confirmarSubida(id, usuarioId) {
+  const archivo = await buscarPropio(id, usuarioId);
+  if (archivo.estado === 'subido') {
+    return aArchivo(archivo, { url: await urlParaVer(archivo.clave_objeto) });
+  }
+
+  const metadatos = await obtenerMetadatos(archivo.clave_objeto);
+  if (!metadatos) throw ErrorApp.solicitudInvalida('La imagen todavía no se ha subido');
+
+  if (metadatos.tamanoBytes > TAMANO_MAXIMO) {
+    await eliminarObjeto(archivo.clave_objeto);
+    await repositorio.marcarEliminado(id);
+    throw ErrorApp.solicitudInvalida('La imagen supera los 10 MB');
+  }
+
+  const subido = await repositorio.marcarSubido(id, metadatos.tamanoBytes);
+  return aArchivo(subido, { url: await urlParaVer(subido.clave_objeto) });
+}
+
+export async function eliminarArchivo(id, usuarioId) {
+  const archivo = await buscarPropio(id, usuarioId);
+  await eliminarObjeto(archivo.clave_objeto);
+  await repositorio.marcarEliminado(id);
+}
+
+/**
+ * Lanza 400 si algún id no es del usuario o aún no está confirmado.
+ * Acepta `db` para usarse dentro de una transacción de otro módulo.
+ */
+export async function exigirArchivosPropios(ids, usuarioId, db) {
+  const unicos = [...new Set(ids)];
+  if (unicos.length === 0) return;
+  const validos = await repositorio.listarIdsUtilizables(unicos, usuarioId, db);
+  if (validos.length !== unicos.length) {
+    throw ErrorApp.solicitudInvalida('Alguna imagen no existe, no es tuya o no terminó de subirse');
+  }
+}
+
+/** Borra del bucket las subidas que nunca se confirmaron. La llama server.js cada hora. */
+export async function limpiarHuerfanos(horas = 24) {
+  const pendientes = await repositorio.listarPendientesAntiguos(horas);
+  for (const archivo of pendientes) {
+    try {
+      await eliminarObjeto(archivo.clave_objeto);
+      await repositorio.marcarEliminado(archivo.id);
+    } catch (err) {
+      logger.warn({ err, archivoId: archivo.id }, 'No se pudo limpiar un archivo huérfano');
+    }
+  }
+  if (pendientes.length) logger.info(`Limpieza: ${pendientes.length} archivo(s) huérfano(s)`);
+}

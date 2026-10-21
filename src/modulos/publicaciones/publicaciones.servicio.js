@@ -1,6 +1,8 @@
 /**
  * Reglas de publicaciones:
  *  - Crear en transacción: publicaciones + publicacion_archivos (archivos propios y 'subido').
+ *  - Editar puede reemplazar las imágenes (archivoIds = lista final, en orden): se vuelven a
+ *    enlazar en una transacción y las que se quitaron se borran del bucket después.
  *  - Visibilidad: 'publico' para todos, 'amigos' solo amigos (v_amigos), 'privado' solo el autor.
  *    Si no puedes verla, se responde 404 (no se revela que existe).
  *  - Reaccionar = INSERT … ON CONFLICT (publicacion_id, usuario_id) DO UPDATE SET tipo.
@@ -11,6 +13,7 @@
  */
 import { enTransaccion } from '../../db/transaccion.js';
 import { ErrorApp } from '../../errores/ErrorApp.js';
+import { logger } from '../../lib/logger.js';
 import { urlParaVer } from '../../lib/almacenamiento.js';
 import { codificarCursor, decodificarCursor, paginar } from '../../lib/paginacion.js';
 import { EVENTOS } from '../../sockets/eventos.js';
@@ -81,18 +84,23 @@ async function anunciarNueva(publicacion) {
   }
 }
 
+/** Enlaza las imágenes en orden; 23505 = alguna ya está en otra publicación. */
+async function enlazarSinRepetir(publicacionId, archivoIds, db) {
+  try {
+    await repositorio.enlazarArchivos(publicacionId, archivoIds, db);
+  } catch (error) {
+    if (error.code === '23505') {
+      throw ErrorApp.conflicto('Alguna imagen ya pertenece a otra publicación');
+    }
+    throw error;
+  }
+}
+
 export async function crear(autorId, { contenido, visibilidad, archivoIds }) {
   const { id } = await enTransaccion(async (db) => {
     await archivos.exigirArchivosPropios(archivoIds, autorId, db);
     const creada = await repositorio.crear({ autorId, contenido, visibilidad }, db);
-    try {
-      await repositorio.enlazarArchivos(creada.id, archivoIds, db);
-    } catch (error) {
-      if (error.code === '23505') {
-        throw ErrorApp.conflicto('Alguna imagen ya pertenece a otra publicación');
-      }
-      throw error;
-    }
+    await enlazarSinRepetir(creada.id, archivoIds, db);
     return creada;
   });
 
@@ -108,9 +116,29 @@ async function exigirAutor(id, usuarioId) {
   return fila;
 }
 
-export async function editar(id, usuarioId, cambios) {
+export async function editar(id, usuarioId, { contenido, visibilidad, archivoIds }) {
   await exigirAutor(id, usuarioId);
-  await repositorio.actualizar(id, cambios);
+
+  const quitadas = await enTransaccion(async (db) => {
+    // Siempre se actualiza la fila: así actualizado_en marca la publicación como editada
+    await repositorio.actualizar(id, { contenido, visibilidad }, db);
+    if (archivoIds === undefined) return [];
+
+    const actuales = await repositorio.listarArchivoIds(id, db);
+    await archivos.exigirArchivosPropios(archivoIds, usuarioId, db);
+    await repositorio.desenlazarArchivos(id, db);
+    await enlazarSinRepetir(id, archivoIds, db);
+    return actuales.filter((archivoId) => !archivoIds.includes(archivoId));
+  });
+
+  // Fuera de la transacción: si el bucket falla, la publicación ya quedó bien guardada
+  for (const archivoId of quitadas) {
+    try {
+      await archivos.eliminarArchivo(archivoId, usuarioId);
+    } catch (err) {
+      logger.warn({ err, archivoId }, 'No se pudo borrar una imagen quitada de una publicación');
+    }
+  }
   return obtener(id, usuarioId);
 }
 

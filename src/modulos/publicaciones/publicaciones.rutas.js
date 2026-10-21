@@ -6,7 +6,7 @@
  *   [x] GET    /usuario/:id      Publicaciones de un usuario
  *   [x] POST   /                 Crear { contenido, visibilidad, archivoIds[] }       (auth)
  *   [x] GET    /:id              Ver una publicación (respeta visibilidad)
- *   [x] PATCH  /:id              Editar contenido/visibilidad (solo autor)           (auth)
+ *   [x] PATCH  /:id              Editar contenido/visibilidad/imágenes (solo autor)  (auth)
  *   [x] DELETE /:id              Borrado lógico (solo autor)                          (auth)
  *   [x] PUT    /:id/reaccion     Poner o cambiar reacción { tipo }                    (auth)
  *   [x] DELETE /:id/reaccion     Quitar mi reacción                                   (auth)

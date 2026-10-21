@@ -4,8 +4,9 @@
  *
  * Reglas clave:
  *  - Registro en una transacción: usuarios + perfiles + tokens_usuario.
- *  - Login busca por hmac(normalizarCorreo(correo)) y exige correo verificado.
- *  - Mensaje de error genérico en login ("correo o clave incorrectos").
+ *  - Login con nombre de usuario o correo: si lleva "@" busca por
+ *    hmac(normalizarCorreo(correo)); si no, por nombre de usuario. Exige correo verificado.
+ *  - Mensaje de error genérico en login ("usuario/correo o clave incorrectos").
  *  - "Olvidé mi clave" responde igual exista o no el correo (no revelar cuentas).
  *  - Los tokens se marcan como usados (usado_en) y se rechazan si expiraron.
  *  - Refresh token rotativo: cada /refrescar revoca la sesión y crea una nueva.
@@ -35,9 +36,9 @@ const tokenInvalido = () =>
   new ErrorApp(400, 'TOKEN_INVALIDO', 'El enlace no es válido o ya expiró. Pide uno nuevo.');
 
 const credencialesInvalidas = () =>
-  new ErrorApp(401, 'CREDENCIALES_INVALIDAS', 'Correo o contraseña incorrectos');
+  new ErrorApp(401, 'CREDENCIALES_INVALIDAS', 'Usuario, correo o contraseña incorrectos');
 
-// Hash ficticio para que el login tarde lo mismo exista o no el correo.
+// Hash ficticio para que el login tarde lo mismo exista o no la cuenta.
 let hashFicticio = null;
 const obtenerHashFicticio = () => (hashFicticio ??= hashearClave('clave-ficticia-para-tiempos'));
 
@@ -128,8 +129,10 @@ async function abrirSesion(usuarioId, { agenteUsuario, ip }, db) {
 }
 
 /** Devuelve { tokenAcceso, usuario, refreshToken }. El controlador pone refreshToken en la cookie. */
-export async function iniciarSesion({ correo, clave }, meta) {
-  const usuario = await repositorio.buscarPorCorreoHash(hmac(normalizarCorreo(correo)));
+export async function iniciarSesion({ identificador, clave }, meta) {
+  const usuario = identificador.includes('@')
+    ? await repositorio.buscarPorCorreoHash(hmac(normalizarCorreo(identificador)))
+    : await repositorio.buscarPorNombreUsuario(identificador);
 
   if (!usuario) {
     await verificarClave(await obtenerHashFicticio(), clave);

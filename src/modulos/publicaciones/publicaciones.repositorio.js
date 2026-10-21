@@ -62,6 +62,18 @@ export async function enlazarArchivos(publicacionId, archivoIds, db = pool) {
 }
 
 /** Publicación completa si el visitante puede verla; si no, null. */
+export async function listarArchivoIds(publicacionId, db = pool) {
+  const { rows } = await db.query(
+    'SELECT archivo_id FROM publicacion_archivos WHERE publicacion_id = $1 ORDER BY orden',
+    [publicacionId],
+  );
+  return rows.map((fila) => fila.archivo_id);
+}
+
+export async function desenlazarArchivos(publicacionId, db = pool) {
+  await db.query('DELETE FROM publicacion_archivos WHERE publicacion_id = $1', [publicacionId]);
+}
+
 export async function buscarVisible(id, visitanteId, db = pool) {
   const { rows } = await db.query(`${SELECT_PUBLICACION} WHERE p.id = $2 AND ${PUEDE_VER}`, [
     visitanteId,

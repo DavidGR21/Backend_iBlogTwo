@@ -5,7 +5,7 @@
  *   [x] POST /registro            Crea usuario + perfil y envía correo de verificación
  *   [x] POST /verificar-correo    Recibe el token del enlace y marca correo_verificado_en
  *   [x] POST /reenviar-verificacion
- *   [x] POST /login               Devuelve token de acceso + cookie httpOnly con refresh token
+ *   [x] POST /login               Con usuario o correo; devuelve token de acceso + cookie httpOnly con refresh token
  *   [x] POST /refrescar           Rota el refresh token y entrega un token de acceso nuevo
  *   [x] POST /logout              Revoca la sesión actual
  *   [x] POST /olvide-clave        Envía correo con enlace para restablecer

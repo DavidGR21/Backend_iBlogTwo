@@ -39,6 +39,17 @@ export async function buscarPorCorreoHash(correoHash, db = pool) {
   return rows[0] ?? null;
 }
 
+/** nombre_usuario es citext: la búsqueda no distingue mayúsculas. */
+export async function buscarPorNombreUsuario(nombreUsuario, db = pool) {
+  const { rows } = await db.query(
+    `SELECT ${COLUMNAS_USUARIO}
+       FROM usuarios u JOIN perfiles p ON p.usuario_id = u.id
+      WHERE u.nombre_usuario = $1`,
+    [nombreUsuario],
+  );
+  return rows[0] ?? null;
+}
+
 export async function buscarPorId(id, db = pool) {
   const { rows } = await db.query(
     `SELECT ${COLUMNAS_USUARIO}

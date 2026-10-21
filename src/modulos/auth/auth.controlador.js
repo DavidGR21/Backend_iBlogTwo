@@ -63,6 +63,10 @@ export async function refrescar(req, res) {
   }
 }
 
+export async function restaurar(req, res) {
+  res.json(await servicio.restaurar(req.valido.body.tokenSesion));
+}
+
 export async function cerrarSesion(req, res) {
   await servicio.cerrarSesion(req.cookies?.[COOKIE_REFRESH]);
   res.clearCookie(COOKIE_REFRESH, opcionesCookie);

@@ -10,6 +10,8 @@
  *  - "Olvidé mi clave" responde igual exista o no el correo (no revelar cuentas).
  *  - Los tokens se marcan como usados (usado_en) y se rechazan si expiraron.
  *  - Refresh token rotativo: cada /refrescar revoca la sesión y crea una nueva.
+ *  - Token de sesión de 1 día (sin BD): login y /refrescar lo entregan; /restaurar lo
+ *    canjea por un token de acceso cuando la cookie del refresh token ya no está.
  */
 import { urlFrontend } from '../../config/env.js';
 import { enTransaccion } from '../../db/transaccion.js';
@@ -18,7 +20,14 @@ import { cifrar, hmac, normalizarCorreo } from '../../lib/cifrado.js';
 import { hashearClave, verificarClave } from '../../lib/clave.js';
 import { enviarCorreo } from '../../lib/correo.js';
 import { logger } from '../../lib/logger.js';
-import { firmarTokenAcceso, generarTokenAleatorio, hashToken } from '../../lib/tokens.js';
+import {
+  firmarTokenAcceso,
+  firmarTokenSesion,
+  generarTokenAleatorio,
+  hashToken,
+  huellaClave,
+  verificarTokenSesion,
+} from '../../lib/tokens.js';
 import * as usuarios from '../usuarios/usuarios.servicio.js';
 import * as repositorio from './auth.repositorio.js';
 import { correoRecuperarClave, correoVerificacion } from './auth.correos.js';
@@ -128,7 +137,10 @@ async function abrirSesion(usuarioId, { agenteUsuario, ip }, db) {
   return refreshToken;
 }
 
-/** Devuelve { tokenAcceso, usuario, refreshToken }. El controlador pone refreshToken en la cookie. */
+/**
+ * Devuelve { tokenAcceso, tokenSesion, usuario, refreshToken }.
+ * El controlador pone refreshToken en la cookie.
+ */
 export async function iniciarSesion({ identificador, clave }, meta) {
   const usuario = identificador.includes('@')
     ? await repositorio.buscarPorCorreoHash(hmac(normalizarCorreo(identificador)))
@@ -154,6 +166,7 @@ export async function iniciarSesion({ identificador, clave }, meta) {
 
   return {
     tokenAcceso: firmarTokenAcceso(usuario.id),
+    tokenSesion: firmarTokenSesion(usuario.id, usuario.clave_hash),
     usuario: await usuarios.obtenerYo(usuario.id),
     refreshToken,
   };
@@ -169,7 +182,11 @@ export async function refrescar(refreshToken, meta) {
     const usuario = await repositorio.buscarPorId(usuarioId, db);
     if (!usuario || usuario.estado !== 'activo') return null;
 
-    return { usuarioId, refreshToken: await abrirSesion(usuarioId, meta, db) };
+    return {
+      usuarioId,
+      claveHash: usuario.clave_hash,
+      refreshToken: await abrirSesion(usuarioId, meta, db),
+    };
   });
 
   if (!resultado) throw ErrorApp.noAutenticado('La sesión expiró, vuelve a ingresar');
@@ -177,8 +194,40 @@ export async function refrescar(refreshToken, meta) {
   await repositorio.registrarAcceso(resultado.usuarioId);
   return {
     tokenAcceso: firmarTokenAcceso(resultado.usuarioId),
+    tokenSesion: firmarTokenSesion(resultado.usuarioId, resultado.claveHash),
     usuario: await usuarios.obtenerYo(resultado.usuarioId),
     refreshToken: resultado.refreshToken,
+  };
+}
+
+/**
+ * Recupera la sesión con el token de sesión de 1 día cuando la cookie no está
+ * (navegador reiniciado, cookies de terceros bloqueadas…). No escribe en la BD:
+ * solo comprueba que el usuario siga activo y que su clave no haya cambiado.
+ * No renueva el token de sesión, así la sesión sin cookie dura como máximo un día.
+ */
+export async function restaurar(tokenSesion) {
+  const sesionExpirada = () => ErrorApp.noAutenticado('La sesión expiró, vuelve a ingresar');
+
+  let contenido;
+  try {
+    contenido = verificarTokenSesion(tokenSesion);
+  } catch {
+    throw sesionExpirada();
+  }
+
+  const usuario = await repositorio.buscarPorId(contenido.id);
+  if (
+    !usuario ||
+    usuario.estado !== 'activo' ||
+    huellaClave(usuario.clave_hash) !== contenido.huella
+  ) {
+    throw sesionExpirada();
+  }
+
+  return {
+    tokenAcceso: firmarTokenAcceso(usuario.id),
+    usuario: await usuarios.obtenerYo(usuario.id),
   };
 }
 

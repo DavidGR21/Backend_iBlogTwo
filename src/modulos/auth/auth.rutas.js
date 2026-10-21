@@ -7,12 +7,13 @@
  *   [x] POST /reenviar-verificacion
  *   [x] POST /login               Con usuario o correo; devuelve token de acceso + cookie httpOnly con refresh token
  *   [x] POST /refrescar           Rota el refresh token y entrega un token de acceso nuevo
+ *   [x] POST /restaurar           Canjea el token de sesión de 1 día (sin cookie) por uno de acceso
  *   [x] POST /logout              Revoca la sesión actual
  *   [x] POST /olvide-clave        Envía correo con enlace para restablecer
  *   [x] POST /restablecer-clave   Cambia la clave con el token y revoca todas las sesiones
  *
  * El límite de intentos se aplica a las rutas que reciben credenciales o envían
- * correos. /refrescar y /logout quedan fuera: el frontend llama a /refrescar en
+ * correos. /refrescar, /restaurar y /logout quedan fuera: el frontend llama a /refrescar en
  * cada carga de página y cada vez que expira el token de acceso.
  */
 import { Router } from 'express';
@@ -23,6 +24,7 @@ import {
   esquemaLogin,
   esquemaRegistro,
   esquemaRestablecerClave,
+  esquemaRestaurar,
   esquemaSoloCorreo,
   esquemaToken,
 } from './auth.esquemas.js';
@@ -44,6 +46,7 @@ rutasAuth.post(
 );
 rutasAuth.post('/login', limitarAuth, validar({ body: esquemaLogin }), controlador.iniciarSesion);
 rutasAuth.post('/refrescar', controlador.refrescar);
+rutasAuth.post('/restaurar', validar({ body: esquemaRestaurar }), controlador.restaurar);
 rutasAuth.post('/logout', controlador.cerrarSesion);
 rutasAuth.post(
   '/olvide-clave',

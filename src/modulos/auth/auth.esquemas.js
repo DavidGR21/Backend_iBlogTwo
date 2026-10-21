@@ -49,4 +49,6 @@ export const esquemaSoloCorreo = z.object({ correo });
 
 export const esquemaToken = z.object({ token });
 
+export const esquemaRestaurar = z.object({ tokenSesion: z.string().min(1).max(2000) });
+
 export const esquemaRestablecerClave = z.object({ token, clave });

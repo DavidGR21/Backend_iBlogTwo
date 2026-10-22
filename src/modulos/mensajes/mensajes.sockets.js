@@ -1,7 +1,7 @@
 /**
  * Eventos en tiempo real del chat.
  *
- *  - EVENTOS.MENSAJE_ENVIAR { conversacionId, contenido?, archivoId? } con callback de confirmación:
+ *  - EVENTOS.MENSAJE_ENVIAR { conversacionId, contenido?, archivoId?, stickerId? } con callback de confirmación:
  *      validar → servicio.enviarMensaje (que emite EVENTOS.MENSAJE_NUEVO a la sala
  *      personal de cada participante) → responder { ok: true, mensaje }.
  *  - EVENTOS.MENSAJE_LEIDO { conversacionId, mensajeId } → actualizar ultimo_leido_mensaje_id.

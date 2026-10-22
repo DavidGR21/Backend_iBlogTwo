@@ -4,6 +4,7 @@
  *    Si dejan de ser amigos, el historial se puede leer pero ya no se puede escribir.
  *  - clave_directa = '<uuid menor>:<uuid mayor>' evita chats duplicados.
  *  - El contenido se guarda con lib/cifrado (cifrar) y se devuelve descifrado.
+ *  - Un sticker (stickerId) se comprueba contra KLIPY y se guarda cifrado en el contenido.
  *  - Solo los participantes pueden leer o enviar (la BD también lo exige).
  */
 import { enTransaccion } from '../../db/transaccion.js';
@@ -14,6 +15,8 @@ import { paginar } from '../../lib/paginacion.js';
 import { EVENTOS } from '../../sockets/eventos.js';
 import { emitirAUsuario } from '../../sockets/emisor.js';
 import * as amistades from '../amistades/amistades.servicio.js';
+import { codificarSticker } from '../stickers/stickers.contenido.js';
+import * as stickers from '../stickers/stickers.servicio.js';
 import * as archivos from '../archivos/archivos.servicio.js';
 import * as usuarios from '../usuarios/usuarios.servicio.js';
 import * as repositorio from './mensajes.repositorio.js';
@@ -65,7 +68,10 @@ export async function listarMensajes(conversacionId, usuarioId, { antesDe, limit
   return paginar(filas, limite, (f) => Number(f.id), armarMensaje);
 }
 
-export async function enviarMensaje(remitenteId, { conversacionId, contenido, archivoId }) {
+export async function enviarMensaje(
+  remitenteId,
+  { conversacionId, contenido, archivoId, stickerId },
+) {
   const participantes = await exigirParticipante(conversacionId, remitenteId);
   const otros = participantes.filter((id) => id !== remitenteId);
 
@@ -77,11 +83,12 @@ export async function enviarMensaje(remitenteId, { conversacionId, contenido, ar
   }
 
   if (archivoId) await archivos.exigirArchivosPropios([archivoId], remitenteId);
+  const texto = stickerId ? codificarSticker(await stickers.obtener(stickerId)) : contenido;
 
   const id = await repositorio.crearMensaje({
     conversacionId,
     remitenteId,
-    contenidoCifrado: contenido ? cifrar(contenido) : null,
+    contenidoCifrado: texto ? cifrar(texto) : null,
     archivoId,
   });
   const mensaje = await armarMensaje(await repositorio.buscarMensaje(id));

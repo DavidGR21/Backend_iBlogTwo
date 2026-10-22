@@ -59,3 +59,8 @@ export const esquemaEditar = z
 export const esquemaReaccion = z.object({
   tipo: z.enum(TIPOS_REACCION, 'Tipo de reacción inválido'),
 });
+
+// Quién reaccionó: paginado y, opcionalmente, solo un tipo de reacción.
+export const esquemaListarReacciones = esquemaPaginacion.extend({
+  tipo: z.enum(TIPOS_REACCION, 'Tipo de reacción inválido').optional(),
+});

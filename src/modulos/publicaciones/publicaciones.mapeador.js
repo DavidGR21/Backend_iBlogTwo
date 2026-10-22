@@ -17,3 +17,13 @@ export function aPublicacion(fila, { autor, imagenes }) {
     creadaEn: fila.creado_en,
   };
 }
+
+/** { id, usuario, tipo, creadaEn }: `id` es el del usuario (solo hay una reacción por persona). */
+export function aReaccion(fila, { usuario }) {
+  return {
+    id: fila.id,
+    usuario,
+    tipo: fila.tipo,
+    creadaEn: fila.actualizado_en,
+  };
+}

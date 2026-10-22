@@ -153,6 +153,25 @@ export async function borrarReaccion(publicacionId, usuarioId, db = pool) {
   );
 }
 
+/** Quién reaccionó, más reciente primero. `tipo` null = todas las reacciones. */
+export async function listarReacciones({ publicacionId, tipo, cursor, limite }, db = pool) {
+  const { rows } = await db.query(
+    `SELECT rp.usuario_id AS id, rp.tipo, rp.actualizado_en,
+            rp.actualizado_en::text AS cursor_fecha,
+            to_jsonb(ur) AS usuario
+       FROM reacciones_publicacion rp
+       JOIN v_usuarios_resumen ur ON ur.id = rp.usuario_id
+      WHERE rp.publicacion_id = $1
+        AND ($2::tipo_reaccion IS NULL OR rp.tipo = $2::tipo_reaccion)
+        AND ($3::timestamptz IS NULL
+             OR (rp.actualizado_en, rp.usuario_id) < ($3::timestamptz, $4::uuid))
+      ORDER BY rp.actualizado_en DESC, rp.usuario_id DESC
+      LIMIT $5`,
+    [publicacionId, tipo ?? null, cursor?.[0] ?? null, cursor?.[1] ?? null, limite],
+  );
+  return rows;
+}
+
 /** { me_gusta: 3, me_encanta: 1 } (solo tipos con total > 0). */
 export async function contarReacciones(publicacionId, db = pool) {
   const { rows } = await db.query(

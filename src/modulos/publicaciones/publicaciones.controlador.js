@@ -38,3 +38,13 @@ export async function reaccionar(req, res) {
 export async function quitarReaccion(req, res) {
   res.json(await servicio.quitarReaccion(req.valido.params.id, req.usuario.id));
 }
+
+export async function listarReacciones(req, res) {
+  res.json(
+    await servicio.listarReacciones(
+      req.valido.params.id,
+      req.usuario?.id ?? null,
+      req.valido.query,
+    ),
+  );
+}

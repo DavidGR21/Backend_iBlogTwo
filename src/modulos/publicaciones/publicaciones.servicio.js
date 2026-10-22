@@ -6,6 +6,7 @@
  *  - Visibilidad: 'publico' para todos, 'amigos' solo amigos (v_amigos), 'privado' solo el autor.
  *    Si no puedes verla, se responde 404 (no se revela que existe).
  *  - Reaccionar = INSERT … ON CONFLICT (publicacion_id, usuario_id) DO UPDATE SET tipo.
+ *  - La lista de quién reaccionó respeta la misma visibilidad que la publicación.
  *  - Después de guardar, emitir el evento con sockets/emisor.js.
  *
  * Exporta también `exigirVisible(id, usuarioId)` y `puedeVer(id, usuarioId)` para
@@ -27,7 +28,7 @@ import * as amistades from '../amistades/amistades.servicio.js';
 import * as archivos from '../archivos/archivos.servicio.js';
 import * as usuarios from '../usuarios/usuarios.servicio.js';
 import * as repositorio from './publicaciones.repositorio.js';
-import { aPublicacion } from './publicaciones.mapeador.js';
+import { aPublicacion, aReaccion } from './publicaciones.mapeador.js';
 
 const noEncontrada = () => ErrorApp.noEncontrado('Publicación no encontrada');
 
@@ -145,6 +146,20 @@ export async function editar(id, usuarioId, { contenido, visibilidad, archivoIds
 export async function eliminar(id, usuarioId) {
   await exigirAutor(id, usuarioId);
   await repositorio.marcarEliminada(id);
+}
+
+/** Personas que reaccionaron (solo si el visitante puede ver la publicación). */
+export async function listarReacciones(id, visitanteId, { tipo, antesDe, limite }) {
+  await exigirVisible(id, visitanteId);
+  const filas = await repositorio.listarReacciones({
+    publicacionId: id,
+    tipo,
+    cursor: decodificarCursor(antesDe),
+    limite: limite + 1,
+  });
+  return paginar(filas, limite, cursorDe, async (fila) =>
+    aReaccion(fila, { usuario: await usuarios.armarResumen(fila.usuario) }),
+  );
 }
 
 async function responderReacciones(id, miReaccion) {

@@ -10,6 +10,7 @@
  *   [x] DELETE /:id              Borrado lógico (solo autor)                          (auth)
  *   [x] PUT    /:id/reaccion     Poner o cambiar reacción { tipo }                    (auth)
  *   [x] DELETE /:id/reaccion     Quitar mi reacción                                   (auth)
+ *   [x] GET    /:id/reacciones   Quién reaccionó (?tipo=me_gusta&antesDe&limite)
  *
  * Las lecturas son públicas, pero con sesión incluyen lo de amigos, lo propio y miReaccion.
  *
@@ -24,6 +25,7 @@ import {
   esquemaCrear,
   esquemaEditar,
   esquemaListar,
+  esquemaListarReacciones,
   esquemaParamsId,
   esquemaParamsUsuario,
   esquemaReaccion,
@@ -64,6 +66,12 @@ rutasPublicaciones.delete(
   controlador.eliminar,
 );
 
+rutasPublicaciones.get(
+  '/:id/reacciones',
+  autenticarOpcional,
+  validar({ params: esquemaParamsId, query: esquemaListarReacciones }),
+  controlador.listarReacciones,
+);
 rutasPublicaciones.put(
   '/:id/reaccion',
   autenticar,

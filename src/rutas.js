@@ -10,6 +10,7 @@ import { rutasPublicaciones } from './modulos/publicaciones/publicaciones.rutas.
 import { rutasComentarios } from './modulos/comentarios/comentarios.rutas.js';
 import { rutasAmistades } from './modulos/amistades/amistades.rutas.js';
 import { rutasMensajes } from './modulos/mensajes/mensajes.rutas.js';
+import { rutasStickers } from './modulos/stickers/stickers.rutas.js';
 
 export const rutas = Router();
 
@@ -20,3 +21,4 @@ rutas.use('/publicaciones', rutasPublicaciones);
 rutas.use('/comentarios', rutasComentarios);
 rutas.use('/amistades', rutasAmistades);
 rutas.use('/conversaciones', rutasMensajes);
+rutas.use('/stickers', rutasStickers);

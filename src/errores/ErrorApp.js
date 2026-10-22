@@ -37,6 +37,10 @@ export class ErrorApp extends Error {
     return new ErrorApp(409, 'CONFLICTO', mensaje);
   }
 
+  static noDisponible(mensaje = 'Servicio no disponible, intenta más tarde') {
+    return new ErrorApp(503, 'NO_DISPONIBLE', mensaje);
+  }
+
   static demasiadasPeticiones(mensaje = 'Demasiados intentos, espera un momento') {
     return new ErrorApp(429, 'DEMASIADAS_PETICIONES', mensaje);
   }

@@ -31,6 +31,10 @@ const esquema = z.object({
   BREVO_API_KEY: z.string().optional(),
   CORREO_REMITENTE_NOMBRE: z.string().default('iBlog'),
   CORREO_REMITENTE_EMAIL: z.string().optional(),
+
+  // Stickers (KLIPY). Sin llave, los endpoints de stickers responden 503.
+  KLIPY_API_KEY: z.string().optional(),
+  KLIPY_FILTRO_CONTENIDO: z.enum(['off', 'low', 'medium', 'high']).default('high'),
 });
 
 // Las variables vacías del .env ("CLAVE=") se tratan como no definidas.

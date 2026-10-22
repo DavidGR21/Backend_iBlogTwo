@@ -49,7 +49,8 @@ export async function buscarPorId(id, db = pool) {
 /** Datos mínimos para permisos. */
 export async function buscarBasico(id, db = pool) {
   const { rows } = await db.query(
-    `SELECT c.id, c.publicacion_id, c.autor_id, c.eliminado_en, p.autor_id AS autor_publicacion_id
+    `SELECT c.id, c.publicacion_id, c.autor_id, c.contenido, c.eliminado_en,
+            p.autor_id AS autor_publicacion_id
        FROM comentarios c
        JOIN publicaciones p ON p.id = c.publicacion_id
       WHERE c.id = $1`,

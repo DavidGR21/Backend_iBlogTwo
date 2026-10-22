@@ -4,7 +4,7 @@
  * Endpoints:
  *   [x] GET    /?publicacionId=<id>&antesDe=…   Comentarios raíz de una publicación
  *   [x] GET    /:id/respuestas                 Respuestas de un comentario
- *   [x] POST   /                               Crear { publicacionId, contenido, comentarioPadreId? } (auth)
+ *   [x] POST   /                               Crear { publicacionId, contenido | stickerId, comentarioPadreId? } (auth)
  *   [x] PATCH  /:id                            Editar (solo autor)                                    (auth)
  *   [x] DELETE /:id                            Borrado lógico (solo autor o autor del post)           (auth)
  *

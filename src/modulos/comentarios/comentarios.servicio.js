@@ -5,12 +5,16 @@
  *    (la BD también garantiza que la respuesta sea del mismo post que su padre).
  *  - Un comentario borrado con respuestas se muestra como "Comentario eliminado".
  *  - Edita solo el autor; elimina el autor del comentario o el de la publicación.
+ *  - Un sticker (stickerId) se comprueba contra KLIPY y se guarda en `contenido`
+ *    (stickers.contenido.js); los comentarios de sticker no se editan.
  */
 import { ErrorApp } from '../../errores/ErrorApp.js';
 import { codificarCursor, decodificarCursor, paginar } from '../../lib/paginacion.js';
 import { EVENTOS } from '../../sockets/eventos.js';
 import { emitirASala, salaPublicacion } from '../../sockets/emisor.js';
 import * as publicaciones from '../publicaciones/publicaciones.servicio.js';
+import { codificarSticker, leerSticker } from '../stickers/stickers.contenido.js';
+import * as stickers from '../stickers/stickers.servicio.js';
 import * as usuarios from '../usuarios/usuarios.servicio.js';
 import * as repositorio from './comentarios.repositorio.js';
 import { aComentario } from './comentarios.mapeador.js';
@@ -40,7 +44,7 @@ export async function listarRespuestas(comentarioId, visitanteId) {
   return { items: await Promise.all(filas.map(armar)) };
 }
 
-export async function crear(autorId, { publicacionId, contenido, comentarioPadreId }) {
+export async function crear(autorId, { publicacionId, contenido, stickerId, comentarioPadreId }) {
   await publicaciones.exigirVisible(publicacionId, autorId);
 
   if (comentarioPadreId) {
@@ -53,7 +57,13 @@ export async function crear(autorId, { publicacionId, contenido, comentarioPadre
     }
   }
 
-  const { id } = await repositorio.crear({ publicacionId, autorId, contenido, comentarioPadreId });
+  const texto = stickerId ? codificarSticker(await stickers.obtener(stickerId)) : contenido;
+  const { id } = await repositorio.crear({
+    publicacionId,
+    autorId,
+    contenido: texto,
+    comentarioPadreId,
+  });
   const comentario = await armar(await repositorio.buscarPorId(id));
 
   emitirASala(salaPublicacion(publicacionId), EVENTOS.COMENTARIO_NUEVO, comentario);
@@ -70,6 +80,8 @@ async function buscarVigente(id, usuarioId) {
 export async function editar(id, usuarioId, contenido) {
   const fila = await buscarVigente(id, usuarioId);
   if (fila.autor_id !== usuarioId) throw ErrorApp.prohibido('Solo puedes editar tus comentarios');
+  if (leerSticker(fila.contenido))
+    throw ErrorApp.solicitudInvalida('Un sticker no se puede editar');
 
   await repositorio.actualizar(id, contenido);
   return armar(await repositorio.buscarPorId(id));

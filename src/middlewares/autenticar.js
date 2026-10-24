@@ -6,8 +6,12 @@
  * autenticarOpcional: para rutas públicas que muestran más datos con sesión
  * (feed, perfil). Sin header sigue como invitado (req.usuario = null); con un
  * token inválido o expirado responde 401, así el frontend renueva y reintenta.
+ *
+ * Una cuenta recién suspendida por un administrador responde 401 aunque su token
+ * siga vigente: el frontend intenta renovar, /refrescar la rechaza y cierra la sesión.
  */
 import { ErrorApp } from '../errores/ErrorApp.js';
+import { estaSuspendido } from '../lib/suspendidos.js';
 import { verificarTokenAcceso } from '../lib/tokens.js';
 
 export function autenticar(req, _res, next) {
@@ -15,12 +19,15 @@ export function autenticar(req, _res, next) {
   if (!encabezado?.startsWith('Bearer ')) {
     return next(ErrorApp.noAutenticado());
   }
+  let usuario;
   try {
-    req.usuario = verificarTokenAcceso(encabezado.slice('Bearer '.length));
-    next();
+    usuario = verificarTokenAcceso(encabezado.slice('Bearer '.length));
   } catch {
-    next(ErrorApp.noAutenticado('Sesión inválida o expirada'));
+    return next(ErrorApp.noAutenticado('Sesión inválida o expirada'));
   }
+  if (estaSuspendido(usuario.id)) return next(ErrorApp.noAutenticado('Tu cuenta fue suspendida'));
+  req.usuario = usuario;
+  next();
 }
 
 export function autenticarOpcional(req, res, next) {

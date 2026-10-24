@@ -132,8 +132,21 @@ export async function actualizar(id, { contenido, visibilidad }, db = pool) {
   );
 }
 
-export async function marcarEliminada(id, db = pool) {
-  await db.query('UPDATE publicaciones SET eliminado_en = now() WHERE id = $1', [id]);
+/** `eliminadoPor`: el moderador que la borró (null si la borró su autor). */
+export async function marcarEliminada(id, eliminadoPor = null, db = pool) {
+  await db.query(
+    `UPDATE publicaciones SET eliminado_en = now(), eliminado_por = $2
+      WHERE id = $1 AND eliminado_en IS NULL`,
+    [id, eliminadoPor],
+  );
+}
+
+export async function listarIdsDeAutor(autorId, db = pool) {
+  const { rows } = await db.query(
+    'SELECT id FROM publicaciones WHERE autor_id = $1 AND eliminado_en IS NULL',
+    [autorId],
+  );
+  return rows.map((fila) => fila.id);
 }
 
 export async function guardarReaccion(publicacionId, usuarioId, tipo, db = pool) {

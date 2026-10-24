@@ -7,14 +7,14 @@
  *   [x] POST   /                 Crear { contenido, visibilidad, archivoIds[] }       (auth)
  *   [x] GET    /:id              Ver una publicación (respeta visibilidad)
  *   [x] PATCH  /:id              Editar contenido/visibilidad/imágenes (solo autor)  (auth)
- *   [x] DELETE /:id              Borrado lógico (solo autor)                          (auth)
+ *   [x] DELETE /:id              Borrado lógico + imágenes del bucket (solo autor)    (auth)
  *   [x] PUT    /:id/reaccion     Poner o cambiar reacción { tipo }                    (auth)
  *   [x] DELETE /:id/reaccion     Quitar mi reacción                                   (auth)
  *   [x] GET    /:id/reacciones   Quién reaccionó (?tipo=me_gusta&antesDe&limite)
  *
  * Las lecturas son públicas, pero con sesión incluyen lo de amigos, lo propio y miReaccion.
  *
- * Tiempo real: tras crear → EVENTOS.PUBLICACION_NUEVA;
+ * Tiempo real: tras crear → EVENTOS.PUBLICACION_NUEVA; tras eliminar → EVENTOS.PUBLICACION_ELIMINADA;
  *              tras reaccionar → EVENTOS.REACCION_ACTUALIZADA a salaPublicacion(id).
  */
 import { Router } from 'express';

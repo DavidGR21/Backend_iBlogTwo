@@ -3,6 +3,8 @@
  *  - Crear en transacción: publicaciones + publicacion_archivos (archivos propios y 'subido').
  *  - Editar puede reemplazar las imágenes (archivoIds = lista final, en orden): se vuelven a
  *    enlazar en una transacción y las que se quitaron se borran del bucket después.
+ *  - Eliminar es lógico (eliminado_en), pero sus imágenes sí se borran del bucket.
+ *    Un administrador puede eliminar publicaciones de cualquiera (eliminarComoModerador).
  *  - Visibilidad: 'publico' para todos, 'amigos' solo amigos (v_amigos), 'privado' solo el autor.
  *    Si no puedes verla, se responde 404 (no se revela que existe).
  *  - Reaccionar = INSERT … ON CONFLICT (publicacion_id, usuario_id) DO UPDATE SET tipo.
@@ -14,7 +16,6 @@
  */
 import { enTransaccion } from '../../db/transaccion.js';
 import { ErrorApp } from '../../errores/ErrorApp.js';
-import { logger } from '../../lib/logger.js';
 import { urlParaVer } from '../../lib/almacenamiento.js';
 import { codificarCursor, decodificarCursor, paginar } from '../../lib/paginacion.js';
 import { EVENTOS } from '../../sockets/eventos.js';
@@ -133,19 +134,39 @@ export async function editar(id, usuarioId, { contenido, visibilidad, archivoIds
   });
 
   // Fuera de la transacción: si el bucket falla, la publicación ya quedó bien guardada
-  for (const archivoId of quitadas) {
-    try {
-      await archivos.eliminarArchivo(archivoId, usuarioId);
-    } catch (err) {
-      logger.warn({ err, archivoId }, 'No se pudo borrar una imagen quitada de una publicación');
-    }
-  }
+  await archivos.eliminarArchivosSinDueno(quitadas);
   return obtener(id, usuarioId);
+}
+
+/**
+ * Borrado lógico + sus imágenes fuera del bucket (ya nadie puede verlas).
+ * Avisa a todos para que la quiten de las listas que tengan abiertas.
+ */
+async function borrar(id, eliminadoPor = null) {
+  const archivoIds = await repositorio.listarArchivoIds(id);
+  await repositorio.marcarEliminada(id, eliminadoPor);
+  emitirATodos(EVENTOS.PUBLICACION_ELIMINADA, { publicacionId: id });
+  await archivos.eliminarArchivosSinDueno(archivoIds);
 }
 
 export async function eliminar(id, usuarioId) {
   await exigirAutor(id, usuarioId);
-  await repositorio.marcarEliminada(id);
+  await borrar(id);
+}
+
+/** Moderación: borra la publicación de cualquier autor. Devuelve { id, autor_id }. */
+export async function eliminarComoModerador(id, moderadorId) {
+  const fila = await repositorio.buscarBasica(id);
+  if (!fila) throw noEncontrada();
+  await borrar(id, moderadorId);
+  return fila;
+}
+
+/** Moderación: borra todas las publicaciones de un autor. Devuelve cuántas. */
+export async function eliminarTodasDeAutor(autorId, moderadorId) {
+  const ids = await repositorio.listarIdsDeAutor(autorId);
+  for (const id of ids) await borrar(id, moderadorId);
+  return ids.length;
 }
 
 /** Personas que reaccionaron (solo si el visitante puede ver la publicación). */

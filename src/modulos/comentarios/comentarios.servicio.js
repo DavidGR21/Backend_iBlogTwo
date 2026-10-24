@@ -4,7 +4,8 @@
  *  - Solo se responde a comentarios no eliminados de la misma publicación
  *    (la BD también garantiza que la respuesta sea del mismo post que su padre).
  *  - Un comentario borrado con respuestas se muestra como "Comentario eliminado".
- *  - Edita solo el autor; elimina el autor del comentario o el de la publicación.
+ *  - Edita solo el autor; elimina el autor del comentario o el de la publicación
+ *    (y un administrador, desde el módulo admin, con eliminarComoModerador).
  *  - Un sticker (stickerId) se comprueba contra KLIPY y se guarda en `contenido`
  *    (stickers.contenido.js); los comentarios de sticker no se editan.
  */
@@ -94,3 +95,15 @@ export async function eliminar(id, usuarioId) {
   }
   await repositorio.marcarEliminado(id);
 }
+
+/** Moderación: borra el comentario de cualquiera. Devuelve { id, autor_id, publicacion_id }. */
+export async function eliminarComoModerador(id, moderadorId) {
+  const fila = await repositorio.buscarBasico(id);
+  if (!fila || fila.eliminado_en) throw noEncontrado();
+  await repositorio.marcarEliminado(id, moderadorId);
+  return fila;
+}
+
+/** Moderación: borra todos los comentarios de un autor. Devuelve cuántos. */
+export const eliminarTodosDeAutor = (autorId, moderadorId) =>
+  repositorio.marcarEliminadosDeAutor(autorId, moderadorId);

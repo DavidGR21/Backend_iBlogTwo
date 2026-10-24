@@ -89,6 +89,21 @@ export async function actualizar(id, contenido, db = pool) {
   await db.query('UPDATE comentarios SET contenido = $2 WHERE id = $1', [id, contenido]);
 }
 
-export async function marcarEliminado(id, db = pool) {
-  await db.query('UPDATE comentarios SET eliminado_en = now() WHERE id = $1', [id]);
+/** `eliminadoPor`: el moderador que lo borró (null si lo borró su autor o el del post). */
+export async function marcarEliminado(id, eliminadoPor = null, db = pool) {
+  await db.query(
+    `UPDATE comentarios SET eliminado_en = now(), eliminado_por = $2
+      WHERE id = $1 AND eliminado_en IS NULL`,
+    [id, eliminadoPor],
+  );
+}
+
+/** Borra todos los comentarios vivos de un autor; devuelve cuántos. */
+export async function marcarEliminadosDeAutor(autorId, eliminadoPor, db = pool) {
+  const { rowCount } = await db.query(
+    `UPDATE comentarios SET eliminado_en = now(), eliminado_por = $2
+      WHERE autor_id = $1 AND eliminado_en IS NULL`,
+    [autorId, eliminadoPor],
+  );
+  return rowCount;
 }

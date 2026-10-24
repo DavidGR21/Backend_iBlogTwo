@@ -17,15 +17,16 @@ npm run migrar           # crea las tablas en Neon
 npm run dev              # http://localhost:3000/salud
 ```
 
-| Script            | Qué hace                                                    |
-| ----------------- | ----------------------------------------------------------- |
-| `npm run dev`     | Servidor con recarga automática al guardar                  |
-| `npm start`       | Servidor de producción (lo usa Render)                      |
-| `npm run migrar`  | Aplica las migraciones pendientes de `db/migraciones/`      |
-| `npm run llaves`  | Genera JWT_SECRETO, CLAVE_CIFRADO y CLAVE_HMAC              |
-| `npm test`        | Pruebas (`tests/**/*.test.js`) con el runner nativo de Node |
-| `npm run lint`    | Revisa errores comunes con ESLint                           |
-| `npm run formato` | Formatea todo el código con Prettier                        |
+| Script                       | Qué hace                                                    |
+| ---------------------------- | ----------------------------------------------------------- |
+| `npm run dev`                | Servidor con recarga automática al guardar                  |
+| `npm start`                  | Servidor de producción (lo usa Render)                      |
+| `npm run migrar`             | Aplica las migraciones pendientes de `db/migraciones/`      |
+| `npm run llaves`             | Genera JWT_SECRETO, CLAVE_CIFRADO y CLAVE_HMAC              |
+| `npm run admin -- <usuario>` | Da el rol de administrador (`--quitar` para quitarlo)       |
+| `npm test`                   | Pruebas (`tests/**/*.test.js`) con el runner nativo de Node |
+| `npm run lint`               | Revisa errores comunes con ESLint                           |
+| `npm run formato`            | Formatea todo el código con Prettier                        |
 
 ---
 
@@ -58,6 +59,7 @@ iblog-backend/
 │  │  └─ ErrorApp.js          Errores esperados con su código HTTP
 │  ├─ middlewares/            Funciones que corren antes de los controladores
 │  │  ├─ autenticar.js        Exige sesión (req.usuario) · autenticarOpcional
+│  │  ├─ exigirAdmin.js       Exige rol admin (va después de autenticar)
 │  │  ├─ limitarPeticiones.js Anti fuerza bruta
 │  │  ├─ manejarErrores.js    Convierte errores en respuestas JSON
 │  │  ├─ noEncontrado.js      404 de rutas inexistentes
@@ -74,7 +76,8 @@ iblog-backend/
 │     ├─ publicaciones/       Posts y reacciones
 │     ├─ comentarios/         Comentarios y respuestas
 │     ├─ amistades/           Solicitudes y lista de amigos
-│     └─ mensajes/            Conversaciones y chat
+│     ├─ mensajes/            Conversaciones y chat
+│     └─ admin/               Panel de administración: estadísticas, baneos y moderación
 ├─ .env.example               Plantilla de variables (sí se sube a Git)
 ├─ eslint.config.js · .prettierrc · .editorconfig · .nvmrc
 └─ package.json
@@ -157,6 +160,20 @@ cualquier error lanzado ──────────────────�
 - **Tokens de un solo uso y refresh tokens:** en la BD solo se guarda su SHA-256.
 - **Llaves:** solo en variables de entorno. ⚠️ Si pierdes `CLAVE_CIFRADO` o `CLAVE_HMAC` de producción,
   los datos cifrados no se pueden recuperar. Guárdalas en un gestor de contraseñas.
+
+---
+
+## Administración
+
+- El rol vive en `usuarios.rol` (`usuario` | `admin`). La migración `003` se lo da a la cuenta
+  `Admin`; para otras cuentas: `npm run admin -- <nombre_usuario>` (con la `DATABASE_URL` que
+  corresponda). Desde la web nadie puede cambiar roles.
+- Suspender una cuenta revoca sus sesiones, corta su token de acceso vigente (`lib/suspendidos.js`)
+  y sus sockets. Las vistas solo muestran cuentas activas, así que su contenido deja de verse.
+- Toda acción de un administrador queda en la tabla `acciones_admin`.
+- Imágenes del bucket: al eliminar una publicación se borran sus imágenes; al editarla, las
+  quitadas; al cambiar la foto de perfil, la anterior. Además, cada hora `limpiarHuerfanos`
+  borra las subidas sin confirmar y las imágenes que nada usa (más de 24 h).
 
 ---
 

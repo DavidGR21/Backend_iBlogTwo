@@ -13,6 +13,7 @@
     "start": "node src/server.js",
     "migrar": "node --env-file-if-exists=.env scripts/migrar.js",
     "llaves": "node scripts/generar-llaves.js",
+    "admin": "node --env-file-if-exists=.env scripts/hacer-admin.js",
     "test": "node --env-file-if-exists=.env --test",
     "lint": "eslint .",
     "formato": "prettier --write ."

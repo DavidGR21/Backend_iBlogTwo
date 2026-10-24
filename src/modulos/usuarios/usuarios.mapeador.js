@@ -33,6 +33,7 @@ export function aUsuarioYo(fila, { fotoPerfilUrl = null } = {}) {
     fechaNacimiento: fila.fecha_nacimiento,
     fotoPerfilUrl,
     fotoPerfilId: fila.foto_perfil_id,
+    rol: fila.rol,
   };
 }
 

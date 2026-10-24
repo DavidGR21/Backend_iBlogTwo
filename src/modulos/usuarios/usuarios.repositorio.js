@@ -26,7 +26,7 @@ export async function buscarPerfilPublico(nombreUsuario, db = pool) {
 /** Cuenta completa del usuario con sesión (incluye datos cifrados para descifrar). */
 export async function buscarCuenta(usuarioId, db = pool) {
   const { rows } = await db.query(
-    `SELECT u.id, u.nombre_usuario, u.correo_cifrado,
+    `SELECT u.id, u.nombre_usuario, u.correo_cifrado, u.rol,
             p.nombres, p.apellidos, p.biografia, p.pais_codigo, p.telefono_cifrado,
             p.fecha_nacimiento::text AS fecha_nacimiento,
             p.foto_perfil_id,
@@ -44,6 +44,34 @@ export async function buscarCuenta(usuarioId, db = pool) {
 export async function buscarResumen(usuarioId, db = pool) {
   const { rows } = await db.query('SELECT * FROM v_usuarios_resumen WHERE id = $1', [usuarioId]);
   return rows[0] ?? null;
+}
+
+/** { id, rol, estado } de cualquier cuenta (sin filtrar por estado), o null. */
+export async function buscarRolYEstado(usuarioId, db = pool) {
+  const { rows } = await db.query('SELECT id, rol, estado FROM usuarios WHERE id = $1', [
+    usuarioId,
+  ]);
+  return rows[0] ?? null;
+}
+
+export async function suspender(usuarioId, { moderadorId, motivo }, db = pool) {
+  await db.query(
+    `UPDATE usuarios
+        SET estado = 'suspendido', suspendido_en = now(), suspendido_por = $2,
+            motivo_suspension = $3
+      WHERE id = $1`,
+    [usuarioId, moderadorId, motivo ?? null],
+  );
+}
+
+export async function reactivar(usuarioId, db = pool) {
+  await db.query(
+    `UPDATE usuarios
+        SET estado = 'activo', suspendido_en = NULL, suspendido_por = NULL,
+            motivo_suspension = NULL
+      WHERE id = $1`,
+    [usuarioId],
+  );
 }
 
 // Lista blanca: nombre del campo en el servicio → columna de perfiles.

@@ -5,6 +5,8 @@
  * Exporta también, para otros módulos:
  *  - armarResumen(fila): fila de v_usuarios_resumen → UsuarioResumen (firma la foto).
  *  - obtenerResumen(id): UsuarioResumen de un usuario activo, o null.
+ *  - esAdmin(id), buscarRolYEstado(id), suspender, reactivar y quitarFotoComoModerador:
+ *    los usan el middleware exigirAdmin y el módulo admin.
  */
 import { ErrorApp } from '../../errores/ErrorApp.js';
 import { urlParaVer } from '../../lib/almacenamiento.js';
@@ -63,4 +65,27 @@ export async function actualizarPerfil(usuarioId, datos) {
   }
 
   return obtenerYo(usuarioId);
+}
+
+// ── Administración ──────────────────────────────────
+
+export const buscarRolYEstado = (usuarioId) => repositorio.buscarRolYEstado(usuarioId);
+
+/** true solo si la cuenta existe, está activa y tiene rol admin. */
+export async function esAdmin(usuarioId) {
+  const fila = await repositorio.buscarRolYEstado(usuarioId);
+  return fila?.rol === 'admin' && fila.estado === 'activo';
+}
+
+export const suspender = (usuarioId, datos) => repositorio.suspender(usuarioId, datos);
+export const reactivar = (usuarioId) => repositorio.reactivar(usuarioId);
+
+/** Moderación: quita la foto de perfil (y la borra del bucket). Devuelve true si tenía. */
+export async function quitarFotoComoModerador(usuarioId) {
+  const actual = await repositorio.buscarCuenta(usuarioId);
+  if (!actual) throw ErrorApp.noEncontrado('Usuario no encontrado');
+  if (!actual.foto_perfil_id) return false;
+  await repositorio.actualizarPerfil(usuarioId, { fotoPerfilId: null });
+  await archivos.eliminarArchivosSinDueno([actual.foto_perfil_id]);
+  return true;
 }

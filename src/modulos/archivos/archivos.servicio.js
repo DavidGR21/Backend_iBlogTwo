@@ -6,7 +6,9 @@
  *    (el tamaño que declara el navegador no es confiable).
  *  - Al eliminar: borrar el objeto del bucket y marcar eliminado_en.
  *  - Exporta también `exigirArchivosPropios(ids, usuarioId)`, que usan
- *    publicaciones, perfiles y mensajes antes de enlazar un archivo.
+ *    publicaciones, perfiles y mensajes antes de enlazar un archivo, y
+ *    `eliminarArchivosSinDueno(ids)` para borrar las imágenes de una publicación eliminada.
+ *  - limpiarHuerfanos borra cada hora lo que quedó en el bucket sin usar.
  */
 import crypto from 'node:crypto';
 import { env } from '../../config/env.js';
@@ -92,16 +94,46 @@ export async function exigirArchivosPropios(ids, usuarioId, db) {
   }
 }
 
-/** Borra del bucket las subidas que nunca se confirmaron. La llama server.js cada hora. */
-export async function limpiarHuerfanos(horas = 24) {
-  const pendientes = await repositorio.listarPendientesAntiguos(horas);
-  for (const archivo of pendientes) {
+/** Borra cada archivo del bucket y lo marca eliminado; devuelve cuántos se borraron. */
+async function borrarDelBucket(archivos) {
+  let borrados = 0;
+  for (const archivo of archivos) {
     try {
       await eliminarObjeto(archivo.clave_objeto);
       await repositorio.marcarEliminado(archivo.id);
+      borrados++;
     } catch (err) {
-      logger.warn({ err, archivoId: archivo.id }, 'No se pudo limpiar un archivo huérfano');
+      logger.warn({ err, archivoId: archivo.id }, 'No se pudo borrar un archivo del bucket');
     }
   }
-  if (pendientes.length) logger.info(`Limpieza: ${pendientes.length} archivo(s) huérfano(s)`);
+  return borrados;
+}
+
+/**
+ * Borra archivos sin comprobar el propietario (publicación eliminada, moderación).
+ * Nunca lanza: si el bucket falla, lo registra y la limpieza periódica lo reintentará.
+ */
+export async function eliminarArchivosSinDueno(ids) {
+  const unicos = [...new Set(ids)];
+  if (unicos.length === 0) return 0;
+  try {
+    return await borrarDelBucket(await repositorio.listarVigentes(unicos));
+  } catch (err) {
+    logger.warn({ err }, 'No se pudieron borrar archivos del bucket');
+    return 0;
+  }
+}
+
+/**
+ * Borra del bucket las subidas que nunca se confirmaron y las imágenes que ya nada usa.
+ * La llama server.js cada hora (y un administrador puede lanzarla a mano).
+ * Devuelve { pendientes, sinUso } con cuántos archivos se borraron de cada tipo.
+ */
+export async function limpiarHuerfanos(horas = 24) {
+  const pendientes = await borrarDelBucket(await repositorio.listarPendientesAntiguos(horas));
+  const sinUso = await borrarDelBucket(await repositorio.listarSinUsoAntiguos(horas));
+  if (pendientes + sinUso) {
+    logger.info(`Limpieza: ${pendientes} subida(s) sin confirmar y ${sinUso} imagen(es) sin uso`);
+  }
+  return { pendientes, sinUso };
 }

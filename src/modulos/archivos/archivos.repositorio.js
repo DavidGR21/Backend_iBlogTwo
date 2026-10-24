@@ -50,6 +50,43 @@ export async function listarIdsUtilizables(ids, propietarioId, db = pool) {
   return rows.map((fila) => fila.id);
 }
 
+/** { id, clave_objeto } de los archivos (de la lista) que aún no se han eliminado. */
+export async function listarVigentes(ids, db = pool) {
+  const { rows } = await db.query(
+    `SELECT id, clave_objeto FROM archivos
+      WHERE id = ANY($1::uuid[]) AND eliminado_en IS NULL`,
+    [ids],
+  );
+  return rows;
+}
+
+/**
+ * Archivos subidos que nada usa: ni una publicación viva, ni un perfil, ni un mensaje.
+ * Pasa si el usuario subió imágenes y luego no publicó (o falló la publicación), o con
+ * las imágenes de publicaciones borradas antes de que se limpiaran al eliminar.
+ * Solo los de más de `horas`, para no tocar una subida que está a punto de enlazarse.
+ */
+export async function listarSinUsoAntiguos(horas, limite = 100, db = pool) {
+  const { rows } = await db.query(
+    `SELECT a.id, a.clave_objeto FROM archivos a
+      WHERE a.estado = 'subido'
+        AND a.eliminado_en IS NULL
+        AND a.creado_en < now() - make_interval(hours => $1)
+        AND NOT EXISTS (
+              SELECT 1 FROM publicacion_archivos pa
+                JOIN publicaciones p ON p.id = pa.publicacion_id
+               WHERE pa.archivo_id = a.id AND p.eliminado_en IS NULL)
+        AND NOT EXISTS (
+              SELECT 1 FROM perfiles pf
+               WHERE pf.foto_perfil_id = a.id OR pf.foto_portada_id = a.id)
+        AND NOT EXISTS (SELECT 1 FROM mensajes m WHERE m.archivo_id = a.id)
+      ORDER BY a.creado_en
+      LIMIT $2`,
+    [horas, limite],
+  );
+  return rows;
+}
+
 /** Subidas que nunca se confirmaron (el usuario cerró la página, falló el PUT…). */
 export async function listarPendientesAntiguos(horas, limite = 100, db = pool) {
   const { rows } = await db.query(

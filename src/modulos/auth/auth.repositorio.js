@@ -27,7 +27,7 @@ export async function crearPerfil(usuarioId, { nombres, apellidos, paisCodigo },
 }
 
 const COLUMNAS_USUARIO = `u.id, u.nombre_usuario, u.clave_hash, u.estado, u.correo_verificado_en,
-                          p.nombres`;
+                          u.motivo_suspension, p.nombres`;
 
 export async function buscarPorCorreoHash(correoHash, db = pool) {
   const { rows } = await db.query(

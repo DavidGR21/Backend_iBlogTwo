@@ -152,6 +152,14 @@ export async function iniciarSesion({ identificador, clave }, meta) {
   }
   if (!(await verificarClave(usuario.clave_hash, clave))) throw credencialesInvalidas();
 
+  if (usuario.estado === 'suspendido') {
+    const motivo = usuario.motivo_suspension ? ` Motivo: ${usuario.motivo_suspension}` : '';
+    throw new ErrorApp(
+      403,
+      'CUENTA_SUSPENDIDA',
+      `Tu cuenta fue suspendida por un administrador.${motivo}`,
+    );
+  }
   if (usuario.estado !== 'activo') throw ErrorApp.prohibido('Tu cuenta no está activa');
   if (!usuario.correo_verificado_en) {
     throw new ErrorApp(
@@ -234,6 +242,14 @@ export async function restaurar(tokenSesion) {
 export async function cerrarSesion(refreshToken) {
   if (refreshToken) await repositorio.revocarSesionVigente(hashToken(refreshToken));
 }
+
+// ── Administración ──────────────────────────────────
+
+/** Cierra todas las sesiones de un usuario (p. ej. al suspender su cuenta). */
+export const revocarSesiones = (usuarioId) => repositorio.revocarTodasLasSesiones(usuarioId);
+
+/** Un administrador marca el correo como verificado (si el correo nunca le llegó). */
+export const verificarCorreoManual = (usuarioId) => repositorio.marcarCorreoVerificado(usuarioId);
 
 // ── Recuperar clave ─────────────────────────────────
 

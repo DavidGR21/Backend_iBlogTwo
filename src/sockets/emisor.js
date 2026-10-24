@@ -31,3 +31,8 @@ export function emitirASala(sala, evento, datos) {
 export function emitirATodos(evento, datos) {
   io?.emit(evento, datos);
 }
+
+/** Cierra todas las conexiones en vivo de un usuario (p. ej. al suspender su cuenta). */
+export function desconectarUsuario(usuarioId) {
+  io?.in(salaUsuario(usuarioId)).disconnectSockets(true);
+}

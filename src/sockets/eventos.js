@@ -17,6 +17,7 @@ export const EVENTOS = Object.freeze({
 
   // ── Servidor → cliente ─────────────────────────────
   PUBLICACION_NUEVA: 'publicacion:nueva',
+  PUBLICACION_ELIMINADA: 'publicacion:eliminada', // { publicacionId }: quitarla de las listas
   REACCION_ACTUALIZADA: 'reaccion:actualizada',
   COMENTARIO_NUEVO: 'comentario:nuevo',
   AMISTAD_SOLICITUD: 'amistad:solicitud',
